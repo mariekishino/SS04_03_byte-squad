@@ -124,7 +124,7 @@ test("編隊を圧縮して地球で復元し、6 B・完全一致でクリア�
   await expect(page.getByTestId("size-元データ")).toHaveText("10 B");
   await page.getByRole("button", { name: "← ホーム", exact: true }).click();
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 0 / 2 CLEAR",
+    "ゲーム 0 / 3 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "チュートリアル：通信の練習" }),

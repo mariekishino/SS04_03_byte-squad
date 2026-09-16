@@ -219,3 +219,106 @@ it("任務1はRLE固定で任務2の方式選択の影響を受けない", () =>
     hintLevel: 0,
   });
 });
+
+it("任務3は末尾が欠けた2 Bから始まり、Bを2個補うと4 Bで成功する", () => {
+  const initial = createGameState(3);
+  expect(initial.method).toBe("rle");
+  expect(canSendGame(initial)).toBe(true);
+  expect(gameReducer(initial, { type: "method", method: "raw" })).toBe(initial);
+  const sent = gameReducer(initial, { type: "send" });
+  expect(Array.from(sent.transmitted!)).toEqual([4, 65]);
+  expect(String.fromCharCode(...sent.received!.output)).toBe("AAAA");
+  expect(
+    evaluateTransmission(
+      getGameOriginal(sent),
+      sent.received!.output,
+      sent.transmitted!,
+      4,
+    ),
+  ).toMatchObject({
+    success: false,
+    withinBudget: true,
+    comparison: { missingRange: { start: 4, endExclusive: 6 } },
+  });
+  const repaired = gameReducer(
+    add(gameReducer(sent, { type: "edit-again" }), "2", "B"),
+    { type: "send" },
+  );
+  expect(Array.from(repaired.transmitted!)).toEqual([4, 65, 2, 66]);
+  expect(
+    evaluateTransmission(
+      getGameOriginal(repaired),
+      repaired.received!.output,
+      repaired.transmitted!,
+      4,
+    ).success,
+  ).toBe(true);
+  expect(initial.runs).toEqual([{ count: 4, value: 65 }]);
+});
+
+it("任務3の誤った修理も送信し、文字と余分なデータを判定する", () => {
+  const wrong = gameReducer(add(createGameState(3), "2", "C"), {
+    type: "send",
+  });
+  expect(
+    evaluateTransmission(
+      getGameOriginal(wrong),
+      wrong.received!.output,
+      wrong.transmitted!,
+      4,
+    ).comparison.firstMismatch,
+  ).toBe(4);
+  const extra = gameReducer(add(createGameState(3), "3", "B"), {
+    type: "send",
+  });
+  expect(
+    evaluateTransmission(
+      getGameOriginal(extra),
+      extra.received!.output,
+      extra.transmitted!,
+      4,
+    ).comparison.extraRange,
+  ).toEqual({ start: 6, endExclusive: 7 });
+  const split = gameReducer(add(add(createGameState(3), "1", "B"), "1", "B"), {
+    type: "send",
+  });
+  expect(
+    evaluateTransmission(
+      getGameOriginal(split),
+      split.received!.output,
+      split.transmitted!,
+      4,
+    ),
+  ).toMatchObject({
+    success: false,
+    withinBudget: false,
+    exceededBytes: 2,
+    comparison: { matches: true },
+  });
+});
+
+it("任務3の再挑戦は欠損教材に戻り、古い再生と他の任務を変えない", () => {
+  let state = gameReducer(add(createGameState(3), "2", "B"), { type: "send" });
+  const tick = {
+    type: "tick",
+    generation: state.generation,
+    step: state.step,
+  } as const;
+  state = gameReducer(state, { type: "hint" });
+  state = gameReducer(state, { type: "restart" });
+  expect(state).toMatchObject({
+    missionNumber: 3,
+    phase: "editing",
+    method: "rle",
+    runs: [{ count: 4, value: 65 }],
+    draft: { count: "", letter: "", index: null },
+    hintLevel: 1,
+    playing: false,
+    received: null,
+    transmitted: null,
+  });
+  expect(gameReducer(state, tick)).toBe(state);
+  expect(createGameState(1).runs).toEqual([]);
+  expect(createGameState(2).runs).toEqual([]);
+  expect(createGameState(3).runs).not.toBe(state.runs);
+});

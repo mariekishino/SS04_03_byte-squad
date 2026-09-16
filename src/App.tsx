@@ -5,6 +5,7 @@ import { GameMission } from "./components/GameMission.js";
 import { Ship } from "./components/Sprites.js";
 import { useGameMission } from "./game/useGameMission.js";
 
+import { getNextGameMission } from "./game/missions.js";
 import type { GameMissionNumber } from "./game/missions.js";
 
 type Mode = "home" | "tutorial" | "game";
@@ -15,7 +16,10 @@ export function App() {
   const [selectedMission, setSelectedMission] = useState<GameMissionNumber>(1);
   const first = useGameMission(mode === "game" && selectedMission === 1, 1);
   const second = useGameMission(mode === "game" && selectedMission === 2, 2);
-  const { state, dispatch } = selectedMission === 1 ? first : second;
+  const third = useGameMission(mode === "game" && selectedMission === 3, 3);
+  const sessions = { 1: first, 2: second, 3: third };
+  const { state, dispatch } = sessions[selectedMission];
+  const nextMission = getNextGameMission(selectedMission);
   const onTrained = useCallback(() => setTrained(true), []);
   const onClear = useCallback((number: GameMissionNumber) => {
     setCleared((previous) =>
@@ -25,6 +29,7 @@ export function App() {
   function openGame(number: GameMissionNumber = 1) {
     first.dispatch({ type: "pause" });
     second.dispatch({ type: "pause" });
+    third.dispatch({ type: "pause" });
     setSelectedMission(number);
     setMode("game");
     window.scrollTo(0, 0);
@@ -64,7 +69,7 @@ export function App() {
       {mode === "game" && (
         <GameMission
           key={selectedMission}
-          onNext={selectedMission === 1 ? () => openGame(2) : undefined}
+          onNext={nextMission ? () => openGame(nextMission.number) : undefined}
           state={state}
           dispatch={dispatch}
           onHome={() => navigate("home")}

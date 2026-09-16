@@ -16,20 +16,37 @@ export function RunEditor({
   onSend: () => void;
 }) {
   const countInput = useRef<HTMLInputElement>(null);
+  const mission = getGameMission(state.missionNumber);
+  const repair = mission.initialRuns.length > 0;
   const error = draftError(state.draft);
   const dirty = hasDraft(state);
   return (
     <section className="run-editor" aria-labelledby="editor-heading">
       <div className="console-title">
-        <h2 id="editor-heading">カプセルを作る</h2>
+        <h2 id="editor-heading">
+          {repair ? "カプセルを修理する" : "カプセルを作る"}
+        </h2>
         <span>YOUR TRANSMISSION</span>
       </div>
-      <p className="small">
-        編隊を見て、続く文字の個数と文字を入力しよう。1組は2 Bです。
-      </p>
+      {repair ? (
+        <div className="repair-brief">
+          <p className="eyebrow">REPAIR MISSION</p>
+          <p>
+            復元機に渡すデータの末尾が欠けています。最初に用意したのは(4,A)の1組だけ。
+          </p>
+          <p className="small">
+            まず「地球へ送信」で不足を調べよう。結果を見たら、組を追加・編集して元どおりに届けます。1組は2
+            Bです。
+          </p>
+        </div>
+      ) : (
+        <p className="small">
+          編隊を見て、続く文字の個数と文字を入力しよう。1組は2 Bです。
+        </p>
+      )}
       <p className="editor-source">
         <span>送る元データ</span>
-        <code>{getGameMission(state.missionNumber).input}</code>
+        <code>{mission.input}</code>
         <small>左から順番に</small>
       </p>
       <form
@@ -131,7 +148,9 @@ export function RunEditor({
           {dirty
             ? (error ??
               "この組を確定するか、入力を取り消してから送信できます。")
-            : "個数と文字を決めて「組を追加」。まだ答えは入っていません。"}
+            : repair
+              ? "不足した分の個数と文字を決めて「組を追加」。入力は自分で確かめよう。"
+              : "個数と文字を決めて「組を追加」。まだ答えは入っていません。"}
         </p>
         <div className="editor-buttons">
           <button type="submit" className="primary" disabled={error !== null}>

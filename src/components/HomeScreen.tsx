@@ -138,7 +138,7 @@ export function HomeScreen({
           </button>
         </div>
         <p className="small muted">
-          任務1・2を選んでプレイできます。チュートリアルを飛ばして挑戦できます。
+          任務1～3を選んでプレイできます。チュートリアルを飛ばして挑戦できます。
         </p>
         <nav aria-label="ゲーム任務一覧" className="mission-list">
           {gameMissions.map((mission) => (
@@ -160,9 +160,7 @@ export function HomeScreen({
         </nav>
         <div className="upcoming-stages">
           <span>今後の任務</span>
-          <p>
-            03 復元機を修理する <i>/</i> 04 見えない1バイト
-          </p>
+          <p>04 見えない1バイト</p>
           <small>自由実験とあわせて準備中</small>
         </div>
       </section>
