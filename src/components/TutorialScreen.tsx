@@ -1,3 +1,4 @@
+import { CompressionGuide } from "./CompressionGuide.js";
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { ArcadeField } from "./ArcadeField.js";
@@ -274,6 +275,7 @@ export function TutorialScreen({
               個数6は数値6のバイトです。括弧やカンマは送信しません。
             </p>
           </details>
+          <CompressionGuide onRead={() => dispatch({ type: "pause" })} />
           {result?.success && (
             <div className="next-note">
               <span>練習完了</span>

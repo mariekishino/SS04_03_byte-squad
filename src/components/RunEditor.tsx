@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { firstGameMission } from "../game/missions.js";
+import { getGameMission } from "../game/missions.js";
 import type { Dispatch } from "react";
 import { canSendGame, draftError, hasDraft } from "../game/manual.js";
 import type { GameAction, GameState } from "../game/manual.js";
@@ -29,7 +29,7 @@ export function RunEditor({
       </p>
       <p className="editor-source">
         <span>送る元データ</span>
-        <code>{firstGameMission.input}</code>
+        <code>{getGameMission(state.missionNumber).input}</code>
         <small>左から順番に</small>
       </p>
       <form

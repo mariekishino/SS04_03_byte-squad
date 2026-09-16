@@ -112,9 +112,19 @@ test("編隊を圧縮して地球で復元し、6 B・完全一致でクリア�
   );
   await page.clock.runFor(5000);
   await expect(page.getByTestId("step-count")).toHaveText("00 / 19");
+  await page.getByRole("button", { name: "▶ 自動再生", exact: true }).click();
+  await finishPlayback(page);
+  await page
+    .getByRole("button", { name: "通信任務に挑戦", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: /自分でまとめる/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(page.getByTestId("size-元データ")).toHaveText("10 B");
   await page.getByRole("button", { name: "← ホーム", exact: true }).click();
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 0 / 1 CLEAR",
+    "ゲーム 0 / 2 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "チュートリアル：通信の練習" }),

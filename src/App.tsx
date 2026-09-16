@@ -5,14 +5,30 @@ import { GameMission } from "./components/GameMission.js";
 import { Ship } from "./components/Sprites.js";
 import { useGameMission } from "./game/useGameMission.js";
 
+import type { GameMissionNumber } from "./game/missions.js";
+
 type Mode = "home" | "tutorial" | "game";
 export function App() {
   const [mode, setMode] = useState<Mode>("home");
   const [trained, setTrained] = useState(false);
-  const [cleared, setCleared] = useState(false);
-  const { state, dispatch } = useGameMission(mode === "game");
+  const [cleared, setCleared] = useState<readonly GameMissionNumber[]>([]);
+  const [selectedMission, setSelectedMission] = useState<GameMissionNumber>(1);
+  const first = useGameMission(mode === "game" && selectedMission === 1, 1);
+  const second = useGameMission(mode === "game" && selectedMission === 2, 2);
+  const { state, dispatch } = selectedMission === 1 ? first : second;
   const onTrained = useCallback(() => setTrained(true), []);
-  const onClear = useCallback(() => setCleared(true), []);
+  const onClear = useCallback((number: GameMissionNumber) => {
+    setCleared((previous) =>
+      previous.includes(number) ? previous : [...previous, number],
+    );
+  }, []);
+  function openGame(number: GameMissionNumber = 1) {
+    first.dispatch({ type: "pause" });
+    second.dispatch({ type: "pause" });
+    setSelectedMission(number);
+    setMode("game");
+    window.scrollTo(0, 0);
+  }
   function navigate(next: Mode) {
     dispatch({ type: "pause" });
     setMode(next);
@@ -35,18 +51,20 @@ export function App() {
           trained={trained}
           cleared={cleared}
           onTutorial={() => navigate("tutorial")}
-          onGame={() => navigate("game")}
+          onGame={openGame}
         />
       )}
       {mode === "tutorial" && (
         <TutorialScreen
           onExit={() => navigate("home")}
           onClear={onTrained}
-          onGame={() => navigate("game")}
+          onGame={() => openGame(1)}
         />
       )}
       {mode === "game" && (
         <GameMission
+          key={selectedMission}
+          onNext={selectedMission === 1 ? () => openGame(2) : undefined}
           state={state}
           dispatch={dispatch}
           onHome={() => navigate("home")}

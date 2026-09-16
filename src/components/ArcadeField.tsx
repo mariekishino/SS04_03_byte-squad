@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { DecodeStep, EncodeStep } from "../core/types.js";
+import type { DecodeStep, EncodeStep, Method } from "../core/types.js";
 import { ByteStrip } from "./ByteStrip.js";
 import { Earth, Ship } from "./Sprites.js";
 
@@ -11,6 +11,8 @@ interface Props {
   decodeStep: DecodeStep | null;
   complete: boolean;
   manual?: boolean;
+  method?: Method;
+  sector?: number;
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   children: ReactNode;
 }
@@ -25,14 +27,19 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
     onKeyDown,
     children,
     manual = false,
+    method = "rle",
+    sector = 1,
   },
   ref,
 ) {
+  const raw = method === "raw";
   const receiving = decodeStep !== null;
-  const confirmedCount = payload.reduce(
-    (total, count, index) => (index % 2 === 0 ? total + count : total),
-    0,
-  );
+  const confirmedCount = raw
+    ? 0
+    : payload.reduce(
+        (total, count, index) => (index % 2 === 0 ? total + count : total),
+        0,
+      );
   const flushed =
     encodeStep?.event === "flush-and-start" ||
     encodeStep?.event === "flush-final";
@@ -43,7 +50,9 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
       : null;
   const lastRunCount = payload.at(-2) ?? 0;
   const selectedStart = receiving
-    ? decodeStep.output.length - decodeStep.emittedFromRun
+    ? raw
+      ? Math.max(0, decodeStep.output.length - 1)
+      : decodeStep.output.length - decodeStep.emittedFromRun
     : flushed
       ? confirmedCount - lastRunCount
       : confirmedCount;
@@ -64,7 +73,8 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
     >
       <div className="field-topline">
         <span>
-          SECTOR 01 / {receiving ? "EARTH RECEIVER" : "ORBITAL SCANNER"}
+          SECTOR {String(sector).padStart(2, "0")} /{" "}
+          {receiving ? "EARTH RECEIVER" : "ORBITAL SCANNER"}
         </span>
         <span className="status-dot">
           {complete ? "COMPLETE" : receiving ? "RECEIVING" : "STANDBY"}
@@ -100,7 +110,8 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
               confirmedUntil={receiving || manual ? 0 : confirmedCount}
               cursor={
                 receiving
-                  ? decodeStep.event === "emit-byte"
+                  ? decodeStep.event === "emit-byte" ||
+                    decodeStep.event === "copy-byte"
                     ? decodeStep.output.length - 1
                     : null
                   : (encodeStep?.lastReadIndex ?? null)
@@ -109,7 +120,11 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
           ) : (
             <p className="empty-formation">
               [ 受信待機中 ]
-              <span>カプセルを読み、ここに1機ずつ復元します。</span>
+              <span>
+                {raw
+                  ? "受信したバイトを1つずつコピーします。"
+                  : "カプセルを読み、ここに1機ずつ復元します。"}
+              </span>
             </p>
           )}
         </div>
@@ -121,7 +136,11 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
         )}
         <div className="scan-readout">
           {manual ? (
-            <span>個数と文字で組を作り、元の順番を保って送ろう。</span>
+            <span>
+              {raw
+                ? "元データを1文字1 Bのまま送ろう。"
+                : "個数と文字で組を作り、元の順番を保って送ろう。"}
+            </span>
           ) : receiving ? (
             <>
               <span>
@@ -130,13 +149,24 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
                   {decodeStep.output.length} / {original.length} B
                 </b>
               </span>
-              <span>
-                現在の組から{" "}
-                <b>
-                  {decodeStep.emittedFromRun} /{" "}
-                  {decodeStep.currentRun?.count ?? "—"} 機
-                </b>
-              </span>
+              {raw ? (
+                <span>
+                  1 Bずつコピー / 位置{" "}
+                  <b>
+                    {decodeStep.event === "copy-byte"
+                      ? decodeStep.sourceOffset
+                      : "—"}
+                  </b>
+                </span>
+              ) : (
+                <span>
+                  現在の組から{" "}
+                  <b>
+                    {decodeStep.emittedFromRun} /{" "}
+                    {decodeStep.currentRun?.count ?? "—"} 機
+                  </b>
+                </span>
+              )}
             </>
           ) : (
             <>
@@ -165,13 +195,46 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
       </div>
       <div className="communication-lane">
         <div className="zone-heading">
-          <h2>{receiving ? "地球が受け取ったカプセル" : "確定したカプセル"}</h2>
+          <h2>
+            {raw
+              ? receiving
+                ? "地球が受け取った本体"
+                : "送信する本体"
+              : receiving
+                ? "地球が受け取ったカプセル"
+                : "確定したカプセル"}
+          </h2>
           <span>
-            {payload.length / 2} 組 <small>/ 1組 = 2 B</small>
+            {raw ? (
+              <>
+                {payload.length} B <small>/ 1文字 = 1 B</small>
+              </>
+            ) : (
+              <>
+                {payload.length / 2} 組 <small>/ 1組 = 2 B</small>
+              </>
+            )}
           </span>
         </div>
-        <div className="capsules" aria-label="符号化カプセル">
-          {payload.length === 0 ? (
+        <div
+          className="capsules"
+          aria-label={raw ? "無圧縮の送信バイト" : "符号化カプセル"}
+        >
+          {raw ? (
+            payload.map((value, index) => (
+              <div
+                className={`capsule raw-byte ${receiving && decodeStep.event === "copy-byte" && decodeStep.sourceOffset === index ? "active" : ""}`}
+                key={index}
+                aria-label={`位置${index}：値${String.fromCharCode(value)}、1バイト`}
+              >
+                <div>
+                  <small>VALUE</small>
+                  <strong>{String.fromCharCode(value)}</strong>
+                  <span>1 B</span>
+                </div>
+              </div>
+            ))
+          ) : payload.length === 0 ? (
             <p className="lane-placeholder">
               [ COUNT ][ VALUE ]
               <span>
@@ -216,7 +279,11 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
         <Ship />
         <span>—</span>
         <small>
-          {receiving ? "DOWNLINK / 地球で復元" : "SCAN / 宇宙船で圧縮"}
+          {receiving
+            ? "DOWNLINK / 地球で復元"
+            : raw
+              ? "UPLINK / 宇宙船からそのまま送信"
+              : "SCAN / 宇宙船で圧縮"}
         </small>
       </div>
       {children}
