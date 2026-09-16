@@ -87,7 +87,7 @@ test("任務3の不足を送信で調べ、誤った修理を直してクリア�
   await expect(
     page.getByRole("list", { name: "受信済みデータ" }).getByRole("listitem"),
   ).toHaveCount(6);
-  await expect(page.getByRole("button", { name: /任務4へ/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /任務4へ/ })).toHaveCount(1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
@@ -104,7 +104,7 @@ test("任務3の不足を送信で調べ、誤った修理を直してクリア�
   await expect(page.getByText("位置4～5の2 Bが不足しています。")).toBeVisible();
   await home(page);
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 1 / 3 CLEAR",
+    "ゲーム 1 / 4 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "任務3：復元機を修理する", exact: true }),
@@ -206,7 +206,7 @@ test("任務2クリア後から任務3の欠損教材へ進める", async ({ pag
   await expect(page.getByTestId("size-本体")).toHaveText("2 B");
   await home(page);
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 1 / 3 CLEAR",
+    "ゲーム 1 / 4 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "任務2：圧縮の逆効果", exact: true }),

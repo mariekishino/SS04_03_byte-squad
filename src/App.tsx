@@ -17,7 +17,8 @@ export function App() {
   const first = useGameMission(mode === "game" && selectedMission === 1, 1);
   const second = useGameMission(mode === "game" && selectedMission === 2, 2);
   const third = useGameMission(mode === "game" && selectedMission === 3, 3);
-  const sessions = { 1: first, 2: second, 3: third };
+  const fourth = useGameMission(mode === "game" && selectedMission === 4, 4);
+  const sessions = { 1: first, 2: second, 3: third, 4: fourth };
   const { state, dispatch } = sessions[selectedMission];
   const nextMission = getNextGameMission(selectedMission);
   const onTrained = useCallback(() => setTrained(true), []);
@@ -30,6 +31,7 @@ export function App() {
     first.dispatch({ type: "pause" });
     second.dispatch({ type: "pause" });
     third.dispatch({ type: "pause" });
+    fourth.dispatch({ type: "pause" });
     setSelectedMission(number);
     setMode("game");
     window.scrollTo(0, 0);

@@ -12,6 +12,7 @@ interface Props {
   complete: boolean;
   manual?: boolean;
   method?: Method;
+  methodByte?: number | undefined;
   sector?: number;
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   children: ReactNode;
@@ -28,6 +29,7 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
     children,
     manual = false,
     method = "rle",
+    methodByte,
     sector = 1,
   },
   ref,
@@ -93,6 +95,32 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
           <Earth /> 地球 <small>RECEIVER</small>
         </span>
       </div>
+      {methodByte !== undefined && (
+        <section
+          className={`method-byte-panel ${decodeStep?.event === "read-method" ? "active" : ""}`}
+          aria-label="方式情報の1バイト"
+        >
+          <div
+            className="capsule raw-capsule"
+            aria-label={`方式情報：${methodByte}、${methodByte === 1 ? "RLE" : "無圧縮"}、1バイト`}
+          >
+            <div>
+              <small>METHOD</small>
+              <strong>{methodByte}</strong>
+              <span>1 B</span>
+            </div>
+          </div>
+          <div>
+            <h2>{receiving ? "地球が読む方式情報" : "先頭に付ける方式情報"}</h2>
+            <p>
+              0 = 無圧縮 / 1 = RLE。本体より先に読み、復元の方法を決めます。
+            </p>
+            <p className="small muted">
+              この1 Bはゲーム独自の形式です。ZIPの仕様ではありません。
+            </p>
+          </div>
+        </section>
+      )}
       <div className="formation">
         <div className="zone-heading">
           <h2>{receiving ? "地球で復元した編隊" : "観測データの編隊"}</h2>
@@ -154,7 +182,8 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
                   1 Bずつコピー / 位置{" "}
                   <b>
                     {decodeStep.event === "copy-byte"
-                      ? decodeStep.sourceOffset
+                      ? decodeStep.sourceOffset -
+                        (methodByte === undefined ? 0 : 1)
                       : "—"}
                   </b>
                 </span>
@@ -223,7 +252,7 @@ export const ArcadeField = forwardRef<HTMLElement, Props>(function ArcadeField(
           {raw ? (
             payload.map((value, index) => (
               <div
-                className={`capsule raw-byte ${receiving && decodeStep.event === "copy-byte" && decodeStep.sourceOffset === index ? "active" : ""}`}
+                className={`capsule raw-byte ${receiving && decodeStep.event === "copy-byte" && decodeStep.sourceOffset === index + (methodByte === undefined ? 0 : 1) ? "active" : ""}`}
                 key={index}
                 aria-label={`位置${index}：値${String.fromCharCode(value)}、1バイト`}
               >

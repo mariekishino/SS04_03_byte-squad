@@ -116,7 +116,7 @@ test("任務2のRLE12 Bから無圧縮6 Bへ切り替え、1バイトずつ復�
   ).toHaveCount(0);
   await home(page);
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 1 / 3 CLEAR",
+    "ゲーム 1 / 4 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "任務1：自分でまとめる", exact: true }),
@@ -227,7 +227,7 @@ test("任務1のクリアから任務2に進み、別々にクリアを記録す
   await expect(page.getByTestId("size-元データ")).toHaveText("6 B");
   await home(page);
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 2 / 3 CLEAR",
+    "ゲーム 2 / 4 CLEAR",
   );
   await expect(
     page.getByRole("button", {

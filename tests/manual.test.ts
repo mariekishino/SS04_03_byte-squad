@@ -322,3 +322,137 @@ it("任務3の再挑戦は欠損教材に戻り、古い再生と他の任務を
   expect(createGameState(2).runs).toEqual([]);
   expect(createGameState(3).runs).not.toBe(state.runs);
 });
+
+it("任務4は実際の方式バイトを送り、6 Bの本体と合わせ7 Bで成功する", () => {
+  let state = createGameState(4);
+  expect(canSendGame(state)).toBe(false);
+  state = add(add(add(state, "6", "A"), "4", "B"), "2", "C");
+  state = gameReducer(state, { type: "send" });
+  expect(Array.from(state.transmitted!)).toEqual([1, 6, 65, 4, 66, 2, 67]);
+  expect(state.received!.steps[0]).toMatchObject({
+    event: "read-method",
+    method: "rle",
+    sourceOffset: 0,
+    output: [],
+  });
+  expect(
+    state.received!.steps.find((s) => s.event === "read-pair"),
+  ).toMatchObject({ sourceOffset: 1, pairIndex: 0 });
+  expect(state.received!.output).toEqual(getGameOriginal(state));
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      7,
+    ).success,
+  ).toBe(true);
+  // 本体のみなら6 Bだが、実際の送信データは6 B上限に収まらない。
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      6,
+    ).withinBudget,
+  ).toBe(false);
+});
+it("任務4の無圧縮は方式0を除いた12 Bを復元し、合計13 Bで超過する", () => {
+  let state = gameReducer(createGameState(4), {
+    type: "method",
+    method: "raw",
+  });
+  state = gameReducer(state, { type: "send" });
+  expect(Array.from(state.transmitted!)).toEqual([
+    0,
+    ...getGameOriginal(state),
+  ]);
+  expect(state.received!.steps[0]).toMatchObject({
+    event: "read-method",
+    method: "raw",
+    output: [],
+  });
+  const copies = state.received!.steps.filter((s) => s.event === "copy-byte");
+  expect(copies.map((s) => s.sourceOffset)).toEqual(
+    Array.from({ length: 12 }, (_, i) => i + 1),
+  );
+  expect(copies[0]!.output).toEqual([65]);
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      7,
+    ),
+  ).toMatchObject({
+    success: false,
+    exceededBytes: 6,
+    comparison: { matches: true },
+  });
+});
+it("任務4でも合法な誤答と余分な組を送信でき、復元上限は方式込みの位置で報告する", () => {
+  let state = gameReducer(add(createGameState(4), "6", "B"), { type: "send" });
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      7,
+    ),
+  ).toMatchObject({
+    withinBudget: true,
+    comparison: { firstMismatch: 0, matches: false },
+  });
+  state = createGameState(4);
+  for (const [count, letter] of [
+    ["3", "A"],
+    ["3", "A"],
+    ["4", "B"],
+    ["2", "C"],
+  ])
+    state = add(state, count!, letter!);
+  state = gameReducer(state, { type: "send" });
+  expect(state.transmitted).toHaveLength(9);
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      7,
+    ),
+  ).toMatchObject({ exceededBytes: 2, comparison: { matches: true } });
+  state = createGameState(4);
+  for (let i = 0; i < 17; i++) state = add(state, "255", "A");
+  state = gameReducer(state, { type: "send" });
+  expect(state.received).toBeNull();
+  expect(state.error).toContain("4096 B");
+  expect(state.error).toContain("送信データの位置33");
+});
+it("任務4の方式切替と再挑戦は旧通信を破棄し、他任務の初期データを変えない", () => {
+  let state = gameReducer(add(createGameState(4), "6", "A"), { type: "send" });
+  const tick = {
+    type: "tick",
+    step: state.step,
+    generation: state.generation,
+  } as const;
+  state = gameReducer(state, { type: "method", method: "raw" });
+  expect(state).toMatchObject({
+    received: null,
+    transmitted: null,
+    playing: false,
+    phase: "editing",
+  });
+  expect(gameReducer(state, tick)).toBe(state);
+  state = gameReducer(state, { type: "method", method: "rle" });
+  expect(state.runs).toEqual([{ count: 6, value: 65 }]);
+  state = gameReducer(state, { type: "restart" });
+  expect(state).toMatchObject({
+    missionNumber: 4,
+    method: "rle",
+    runs: [],
+    received: null,
+    transmitted: null,
+  });
+  expect(createGameState(3).runs).toEqual([{ count: 4, value: 65 }]);
+  expect(createGameState(2).runs).toEqual([]);
+});

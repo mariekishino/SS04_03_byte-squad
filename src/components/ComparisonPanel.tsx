@@ -6,12 +6,14 @@ export function ComparisonPanel({
   transmitted,
   budget,
   response,
+  hasMethodByte = false,
 }: {
   original: Uint8Array;
   restored: Uint8Array;
   transmitted: Uint8Array;
   budget: number;
   response: string;
+  hasMethodByte?: boolean;
 }) {
   const result = evaluateTransmission(original, restored, transmitted, budget);
   const { firstMismatch, missingRange, extraRange } = result.comparison;
@@ -40,7 +42,8 @@ export function ComparisonPanel({
       </div>
       {!result.withinBudget && (
         <p className="warning">
-          本体{transmitted.length} B。上限{budget} Bを{result.exceededBytes}{" "}
+          {hasMethodByte ? "送信合計" : "本体"}
+          {transmitted.length} B。上限{budget} Bを{result.exceededBytes}{" "}
           B超えています。
         </p>
       )}
