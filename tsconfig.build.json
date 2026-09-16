@@ -4,7 +4,7 @@
     "noEmit": false,
     "declaration": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist-core"
   },
-  "include": ["src"]
+  "include": ["src/core"]
 }
