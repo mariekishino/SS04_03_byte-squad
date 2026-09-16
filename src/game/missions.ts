@@ -13,6 +13,7 @@ export const missionOne = {
 export const firstGameMission = {
   id: 2,
   number: 1,
+  hasMethodByte: false,
   initialRuns: [],
   debrief: "個数と文字でまとめ、元どおりに届けられました。",
   methods: ["rle"],
@@ -31,6 +32,7 @@ export const firstGameMission = {
 export const secondGameMission = {
   id: 3,
   number: 2,
+  hasMethodByte: false,
   initialRuns: [],
   debrief: "圧縮すると大きくなるデータもあります。データに合う送り方を選ぼう。",
   title: "圧縮の逆効果",
@@ -54,6 +56,7 @@ export const thirdGameMission = {
   input: "AAAABB",
   budget: 4,
   methods: ["rle"],
+  hasMethodByte: false,
   initialRuns: [{ count: 4, value: 65 }],
   request: "受信データの末尾が不足。欠けた組を補って4 B以内で再送しよう。",
   response: "末尾のBを2個確認。全データがそろいました！",
@@ -65,10 +68,30 @@ export const thirdGameMission = {
   ],
 } as const;
 
+export const fourthGameMission = {
+  id: 5,
+  number: 4,
+  title: "見えない1バイト",
+  input: "AAAAAABBBBCC",
+  budget: 7,
+  hasMethodByte: true,
+  initialRuns: [],
+  methods: ["rle", "raw"],
+  request: "今回は読み方も送ろう。方式情報を含めて7 B以内に収めよう。",
+  response: "方式情報を読み取り、全12 Bを復元しました！",
+  debrief: "本体だけでなく、読み方を伝える情報にも容量が必要です。",
+  hints: [
+    "地球はどの読み方を使えばよいかな？ 本体の前に付ける方式情報も容量に含めよう。",
+    "このゲームでは先頭の1 Bが、1ならRLE、0なら無圧縮。上限7 Bのうち、本体に使えるのは6 Bです。",
+    "Aが6個、Bが4個、Cが2個。3組の本体6 Bに方式情報1 Bを足すと7 B。無圧縮なら12 B＋1 B＝13 Bです。",
+  ],
+} as const;
+
 export const gameMissions = [
   firstGameMission,
   secondGameMission,
   thirdGameMission,
+  fourthGameMission,
 ] as const;
 export type GameMissionNumber = (typeof gameMissions)[number]["number"];
 export function getGameMission(number: GameMissionNumber) {

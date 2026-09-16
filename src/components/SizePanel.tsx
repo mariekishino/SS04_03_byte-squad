@@ -43,7 +43,9 @@ export function SizePanel({
           ? "送信したバイト数"
           : complete
             ? "送信準備完了"
-            : "確定済みの本体を計測中"}
+            : metrics.metadataBytes
+              ? "本体と方式情報を計測中"
+              : "確定済みの本体を計測中"}
       </p>
       {metrics.transmittedBytes > budget && (
         <p className="warning small">
@@ -61,9 +63,15 @@ export function SizePanel({
         ))}
       </dl>
       <p className="small muted">
-        方式は送受信側で共有済み。
-        <br />
-        このステージは本体だけを数えます。
+        {metrics.metadataBytes ? (
+          "本体に方式情報1 Bを足した合計で判定します。"
+        ) : (
+          <>
+            方式は送受信側で共有済み。
+            <br />
+            このステージは本体だけを数えます。
+          </>
+        )}
       </p>
       {complete && (
         <div className="saving">

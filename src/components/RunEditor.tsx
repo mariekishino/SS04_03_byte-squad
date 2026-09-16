@@ -208,7 +208,9 @@ export function RunEditor({
           disabled={!canSendGame(state)}
           onClick={onSend}
         >
-          {state.runs.length * 2 > budget ? "予算を超えて試す" : "地球へ送信"}{" "}
+          {state.runs.length * 2 + (mission.hasMethodByte ? 1 : 0) > budget
+            ? "予算を超えて試す"
+            : "地球へ送信"}{" "}
           <span>TRANSMIT ↗</span>
         </button>
         <button className="quiet" onClick={() => dispatch({ type: "restart" })}>

@@ -3,7 +3,7 @@ import type { Dispatch, KeyboardEvent } from "react";
 import { calculateMetrics, evaluateTransmission } from "../core/metrics.js";
 import {
   getGameOriginal,
-  getGamePayload,
+  getGameTransmission,
   canSendGame,
 } from "../game/manual.js";
 import type { GameAction, GameState } from "../game/manual.js";
@@ -34,15 +34,22 @@ export function GameMission({
   const gameOriginal = getGameOriginal(state);
   const isRaw = state.method === "raw";
   const isEditing = state.phase === "editing";
-  const payload = isEditing ? getGamePayload(state) : state.transmitted!;
-  const metrics = calculateMetrics(gameOriginal, payload, false);
+  const transmitted = isEditing
+    ? getGameTransmission(state)
+    : state.transmitted!;
+  const payload = mission.hasMethodByte ? transmitted.subarray(1) : transmitted;
+  const metrics = calculateMetrics(
+    gameOriginal,
+    payload,
+    mission.hasMethodByte,
+  );
   const step = isEditing ? null : state.received!.steps[state.step]!;
   const success =
     state.phase === "result" &&
     evaluateTransmission(
       gameOriginal,
       state.received!.output,
-      payload,
+      transmitted,
       mission.budget,
     ).success;
   useEffect(() => {
@@ -116,7 +123,7 @@ export function GameMission({
               MODE <b>{isRaw ? "無圧縮" : "RLE"}</b>
             </span>
             <span>
-              BYTES <b>{payload.length} B</b>
+              BYTES <b>{metrics.transmittedBytes} B</b>
             </span>
             <span>
               LIMIT <b>{mission.budget} B</b>
@@ -124,7 +131,8 @@ export function GameMission({
           </div>
           <ArcadeField
             ref={field}
-            method={state.method}
+            method={step?.method ?? state.method}
+            methodByte={mission.hasMethodByte ? transmitted[0] : undefined}
             sector={mission.number}
             original={gameOriginal}
             payload={Array.from(payload)}
@@ -138,7 +146,8 @@ export function GameMission({
               <ComparisonPanel
                 original={gameOriginal}
                 restored={state.received!.output}
-                transmitted={payload}
+                transmitted={transmitted}
+                hasMethodByte={mission.hasMethodByte}
                 budget={mission.budget}
                 response={mission.response}
               />
@@ -175,7 +184,10 @@ export function GameMission({
                   </label>
                 </div>
                 <p className="small muted">
-                  方式は地球と共有済み。切り替えると再生と結果をリセットします。RLEの組と入力途中の内容は保存されます。
+                  {mission.hasMethodByte
+                    ? "選んだ方式を先頭の1 Bで伝えます。"
+                    : "方式は地球と共有済み。"}
+                  切り替えると再生と結果をリセットします。RLEの組と入力途中の内容は保存されます。
                 </p>
               </fieldset>
             )}
@@ -205,7 +217,10 @@ export function GameMission({
                       field.current?.focus({ preventScroll: true });
                     }}
                   >
-                    地球へ送信 <span>TRANSMIT ↗</span>
+                    {metrics.transmittedBytes > mission.budget
+                      ? "予算を超えて試す"
+                      : "地球へ送信"}{" "}
+                    <span>TRANSMIT ↗</span>
                   </button>
                   <button
                     className="quiet"
@@ -234,7 +249,9 @@ export function GameMission({
                 <p className="communication-log" role="status">
                   {state.phase === "result"
                     ? "地球からの応答を確認し、必要なら送り方を見直そう。"
-                    : `地球で復元中：${step!.output.length} B。途中で止めたり、結果まで進めたりできます。`}
+                    : step!.event === "read-method"
+                      ? `先頭の方式情報${transmitted[0]}を読み取り、${step!.method === "rle" ? "RLE" : "無圧縮"}で復元します。この1 Bは元データに含めません。`
+                      : `地球で復元中：${step!.output.length} B。途中で止めたり、結果まで進めたりできます。`}
                 </p>
                 <PlaybackControls
                   step={state.step}
@@ -276,6 +293,25 @@ export function GameMission({
                 <p>
                   通信任務{mission.number}を達成！ {mission.debrief}
                 </p>
+                {mission.hasMethodByte && (
+                  <section aria-label="RLEの振り返り">
+                    <h2>今回学んだこと</h2>
+                    <ul>
+                      <li>
+                        表現を変えて小さくしても、元どおりに戻せることが大切。
+                      </li>
+                      <li>データによっては、圧縮すると大きくなる。</li>
+                      <li>読み方を伝える方式情報も、送信容量に含まれる。</li>
+                    </ul>
+                    <p>
+                      次のデータが<code>ABCABCABC</code>なら？
+                      同じ文字は続かなくても、同じ並びが繰り返されています。
+                    </p>
+                    <p className="small muted">
+                      自由実験と用語カードは準備中です。その後は並びを使い回すLZ77の考え方へ進み、実ファイルの保存やZIPの展開につなげます。
+                    </p>
+                  </section>
+                )}
                 {onNext && nextMission && (
                   <button className="primary" onClick={onNext}>
                     任務{nextMission.number}へ：{nextMission.title}

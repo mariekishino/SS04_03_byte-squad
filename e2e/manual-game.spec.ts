@@ -97,7 +97,7 @@ test("目的説明から直接ゲームに入り、誤答を直してクリア�
   );
   await page.getByRole("button", { name: "← ホーム", exact: true }).click();
   await expect(page.getByTestId("game-progress")).toHaveText(
-    "ゲーム 1 / 3 CLEAR",
+    "ゲーム 1 / 4 CLEAR",
   );
   await expect(
     page.getByRole("button", { name: "チュートリアル：通信の練習" }),

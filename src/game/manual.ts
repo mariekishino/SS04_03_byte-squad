@@ -1,5 +1,9 @@
 import { runsToBytes } from "../core/rle.js";
-import { traceDecodePayload } from "../core/packet.js";
+import {
+  packPayload,
+  traceDecodePacket,
+  traceDecodePayload,
+} from "../core/packet.js";
 import { ByteFormatError, parseLearningInput } from "../core/validation.js";
 import type { DecodeStep, Method, Run, Trace } from "../core/types.js";
 import { firstGameMission, getGameMission } from "./missions.js";
@@ -56,6 +60,13 @@ export function getGamePayload(state: GameState): Uint8Array {
   return state.method === "raw"
     ? getGameOriginal(state)
     : runsToBytes(state.runs);
+}
+/** 任務4では本体の前に方式情報を付け、実際に送るバイト列を返す。 */
+export function getGameTransmission(state: GameState): Uint8Array {
+  const payload = getGamePayload(state);
+  return getGameMission(state.missionNumber).hasMethodByte
+    ? packPayload(payload, state.method)
+    : payload;
 }
 export function draftError(draft: Draft): string | null {
   if (
@@ -195,9 +206,11 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         : { ...editing(state), runs: state.runs.slice(0, -1) };
     case "send": {
       if (!canSendGame(state)) return state;
-      const transmitted = getGamePayload(state);
+      const transmitted = getGameTransmission(state);
       try {
-        const received = traceDecodePayload(transmitted, state.method);
+        const received = getGameMission(state.missionNumber).hasMethodByte
+          ? traceDecodePacket(transmitted)
+          : traceDecodePayload(transmitted, state.method);
         return {
           ...state,
           phase: "decoding-review",
@@ -212,7 +225,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         if (!(error instanceof ByteFormatError)) throw error;
         return {
           ...editing(state),
-          error: `${error.message} 本体の位置${error.offset}（0始まり）を確認してください。`,
+          error: `${error.message} ${error.source === "packet" ? "送信データ" : "本体"}の位置${error.offset}（0始まり）を確認してください。`,
         };
       }
     }
