@@ -1,6 +1,8 @@
 import { expect, it } from "vitest";
 import {
   canSendGame,
+  createGameState,
+  getGameOriginal,
   draftError,
   gameOriginal,
   gameReducer,
@@ -113,4 +115,107 @@ it("結果へ進んでも前に戻れ、ヒント・編集・再開後は旧タ�
   expect(state.runs).toHaveLength(1);
   expect(state.received).toBeNull();
   expect(gameReducer(state, oldTick)).toBe(state);
+});
+
+it("任務2のRLEは内容一致でも12 Bとなり、無圧縮は6 Bで成功する", () => {
+  let state = createGameState(2);
+  for (const letter of "ABCDEF") state = add(state, "1", letter);
+  state = gameReducer(state, { type: "send" });
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      6,
+    ),
+  ).toMatchObject({
+    success: false,
+    withinBudget: false,
+    exceededBytes: 6,
+    comparison: { matches: true },
+  });
+  expect(state.transmitted).toHaveLength(12);
+  state = gameReducer(state, { type: "method", method: "raw" });
+  expect(state).toMatchObject({
+    phase: "editing",
+    playing: false,
+    received: null,
+    transmitted: null,
+  });
+  state = gameReducer(state, { type: "send" });
+  expect(Array.from(state.transmitted!)).toEqual([65, 66, 67, 68, 69, 70]);
+  expect(
+    evaluateTransmission(
+      getGameOriginal(state),
+      state.received!.output,
+      state.transmitted!,
+      6,
+    ).success,
+  ).toBe(true);
+  const copies = state.received!.steps.filter(
+    (step) => step.event === "copy-byte",
+  );
+  expect(copies.map((step) => step.output.length)).toEqual([1, 2, 3, 4, 5, 6]);
+  expect(copies.map((step) => step.sourceOffset)).toEqual([0, 1, 2, 3, 4, 5]);
+  expect(state.received!.output).not.toBe(state.transmitted);
+});
+
+it("方式変更でRLEの誤答と未確定入力を保持し、無圧縮の送信には含めない", () => {
+  let state = add(createGameState(2), "4", "Z");
+  state = gameReducer(state, { type: "draft", field: "count", value: "256" });
+  const draft = state.draft;
+  state = gameReducer(state, { type: "method", method: "raw" });
+  expect(canSendGame(state)).toBe(true);
+  for (const type of ["add", "undo", "cancel"] as const)
+    expect(gameReducer(state, { type })).toBe(state);
+  state = gameReducer(state, { type: "send" });
+  expect(String.fromCharCode(...state.received!.output)).toBe("ABCDEF");
+  state = gameReducer(state, { type: "method", method: "rle" });
+  expect(state.draft).toEqual(draft);
+  expect(state.runs).toEqual([{ count: 4, value: 90 }]);
+  expect(canSendGame(state)).toBe(false);
+  expect(state.received).toBeNull();
+  expect(state.transmitted).toBeNull();
+});
+
+it("方式変更前のタイマーを無視し、再挑戦しても任務番号とヒントを保つ", () => {
+  let state = gameReducer(createGameState(2), {
+    type: "method",
+    method: "raw",
+  });
+  state = gameReducer(state, { type: "hint" });
+  state = gameReducer(state, { type: "send" });
+  const oldTick = {
+    type: "tick",
+    step: state.step,
+    generation: state.generation,
+  } as const;
+  state = gameReducer(state, { type: "method", method: "rle" });
+  state = gameReducer(state, { type: "method", method: "raw" });
+  state = gameReducer(state, { type: "send" });
+  expect(gameReducer(state, oldTick)).toBe(state);
+  state = gameReducer(state, { type: "restart" });
+  expect(state).toMatchObject({
+    missionNumber: 2,
+    method: "rle",
+    phase: "editing",
+    hintLevel: 1,
+    runs: [],
+    received: null,
+    playing: false,
+  });
+  expect(getGameOriginal(state)).toEqual(
+    Uint8Array.from([65, 66, 67, 68, 69, 70]),
+  );
+});
+
+it("任務1はRLE固定で任務2の方式選択の影響を受けない", () => {
+  expect(gameReducer(initialGameState, { type: "method", method: "raw" })).toBe(
+    initialGameState,
+  );
+  expect(createGameState(1)).toMatchObject({
+    method: "rle",
+    missionNumber: 1,
+    hintLevel: 0,
+  });
 });

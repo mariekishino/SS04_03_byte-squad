@@ -5,11 +5,13 @@ export function ComparisonPanel({
   restored,
   transmitted,
   budget,
+  response,
 }: {
   original: Uint8Array;
   restored: Uint8Array;
   transmitted: Uint8Array;
   budget: number;
+  response: string;
 }) {
   const result = evaluateTransmission(original, restored, transmitted, budget);
   const { firstMismatch, missingRange, extraRange } = result.comparison;
@@ -27,8 +29,10 @@ export function ComparisonPanel({
       <h2>{result.success ? "STAGE CLEAR" : "RETRY"}</h2>
       <p>
         {result.success
-          ? "ミッションクリア！ 全10 Bを復元。編隊の情報が届きました！"
-          : "再送しよう。入力した組と、地球に届いた編隊を比べてみよう。"}
+          ? `ミッションクリア！ ${response}`
+          : result.comparison.matches
+            ? "内容は元に戻りました。送信サイズを確認し、送り方を見直そう。"
+            : "再送しよう。入力した組と、地球に届いた編隊を比べてみよう。"}
       </p>
       <div className="result-checks">
         <strong>復元：{result.comparison.matches ? "一致" : "不一致"}</strong>

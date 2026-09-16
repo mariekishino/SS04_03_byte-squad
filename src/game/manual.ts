@@ -1,7 +1,10 @@
-import { runsToBytes, traceDecodeRle } from "../core/rle.js";
+import { runsToBytes } from "../core/rle.js";
+import { traceDecodePayload } from "../core/packet.js";
 import { ByteFormatError, parseLearningInput } from "../core/validation.js";
-import type { DecodeStep, Run, Trace } from "../core/types.js";
-import { firstGameMission } from "./missions.js";
+import type { DecodeStep, Method, Run, Trace } from "../core/types.js";
+import { firstGameMission, getGameMission } from "./missions.js";
+
+import type { GameMissionNumber } from "./missions.js";
 
 export const gameOriginal = parseLearningInput(firstGameMission.input);
 export interface Draft {
@@ -10,6 +13,8 @@ export interface Draft {
   readonly index: number | null;
 }
 export interface GameState {
+  readonly missionNumber: GameMissionNumber;
+  readonly method: Method;
   readonly phase: "editing" | "decoding-review" | "result";
   readonly runs: readonly Run[];
   readonly draft: Draft;
@@ -23,6 +28,8 @@ export interface GameState {
 }
 const emptyDraft: Draft = { count: "", letter: "", index: null };
 export const initialGameState: GameState = {
+  missionNumber: 1,
+  method: "rle",
   phase: "editing",
   runs: [],
   draft: emptyDraft,
@@ -34,6 +41,18 @@ export const initialGameState: GameState = {
   error: null,
   hintLevel: 0,
 };
+export function createGameState(missionNumber: GameMissionNumber): GameState {
+  return { ...initialGameState, missionNumber };
+}
+export function getGameOriginal(state: GameState): Uint8Array {
+  return parseLearningInput(getGameMission(state.missionNumber).input);
+}
+/** 無圧縮は教材のコピー。保存中のRLE回答を送信へ混ぜない。 */
+export function getGamePayload(state: GameState): Uint8Array {
+  return state.method === "raw"
+    ? getGameOriginal(state)
+    : runsToBytes(state.runs);
+}
 export function draftError(draft: Draft): string | null {
   if (
     !/^\d+$/.test(draft.count) ||
@@ -54,9 +73,13 @@ export function hasDraft(state: GameState): boolean {
   );
 }
 export function canSendGame(state: GameState): boolean {
-  return state.phase === "editing" && state.runs.length > 0 && !hasDraft(state);
+  return (
+    state.phase === "editing" &&
+    (state.method === "raw" || (state.runs.length > 0 && !hasDraft(state)))
+  );
 }
 export type GameAction =
+  | { type: "method"; method: Method }
   | { type: "draft"; field: "count" | "letter"; value: string }
   | { type: "adjust"; delta: -1 | 1 }
   | { type: "edit"; index: number }
@@ -101,7 +124,21 @@ function move(state: GameState, step: number, playing = false): GameState {
   };
 }
 export function gameReducer(state: GameState, action: GameAction): GameState {
+  // RLE編集用ショートカットが無圧縮の下書きを変えないようにする。
+  if (
+    state.method === "raw" &&
+    ["draft", "adjust", "add", "cancel", "edit", "undo"].includes(action.type)
+  )
+    return state;
   switch (action.type) {
+    case "method": {
+      const allowed: readonly Method[] = getGameMission(
+        state.missionNumber,
+      ).methods;
+      if (state.method === action.method || !allowed.includes(action.method))
+        return state;
+      return { ...editing(state), method: action.method };
+    }
     case "draft":
       return {
         ...editing(state),
@@ -154,9 +191,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         : { ...editing(state), runs: state.runs.slice(0, -1) };
     case "send": {
       if (!canSendGame(state)) return state;
-      const transmitted = runsToBytes(state.runs);
+      const transmitted = getGamePayload(state);
       try {
-        const received = traceDecodeRle(transmitted);
+        const received = traceDecodePayload(transmitted, state.method);
         return {
           ...state,
           phase: "decoding-review",
@@ -201,14 +238,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return editing(state);
     case "restart":
       return {
-        ...initialGameState,
+        ...createGameState(state.missionNumber),
         hintLevel: state.hintLevel,
         generation: state.generation + 1,
       };
     case "hint":
       return {
         ...state,
-        hintLevel: Math.min(3, state.hintLevel + 1),
+        hintLevel: Math.min(
+          getGameMission(state.missionNumber).hints.length,
+          state.hintLevel + 1,
+        ),
         playing: false,
         generation: state.generation + 1,
       };

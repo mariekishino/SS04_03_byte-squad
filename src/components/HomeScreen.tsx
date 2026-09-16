@@ -1,3 +1,6 @@
+import { CompressionGuide } from "./CompressionGuide.js";
+import { gameMissions } from "../game/missions.js";
+import type { GameMissionNumber } from "../game/missions.js";
 import { Ship, Earth } from "./Sprites.js";
 
 export function HomeScreen({
@@ -7,9 +10,9 @@ export function HomeScreen({
   cleared,
 }: {
   onTutorial: () => void;
-  onGame: () => void;
+  onGame: (number?: GameMissionNumber) => void;
   trained: boolean;
-  cleared: boolean;
+  cleared: readonly GameMissionNumber[];
 }) {
   return (
     <main className="start-page">
@@ -103,7 +106,7 @@ export function HomeScreen({
             SELECT MODE <span>どちらからでも始められます</span>
           </h2>
           <span data-testid="game-progress">
-            ゲーム {cleared ? "1" : "0"} / 1 CLEAR
+            ゲーム {cleared.length} / {gameMissions.length} CLEAR
           </span>
         </div>
         <div className="mode-buttons">
@@ -122,11 +125,11 @@ export function HomeScreen({
           </button>
           <button
             className="mode-choice game-choice"
-            onClick={onGame}
+            onClick={() => onGame(1)}
             aria-label="ゲーム：通信任務に挑戦"
           >
             <span className="eyebrow">
-              MISSION 01 {cleared ? " / CLEAR" : " / READY"}
+              MISSION 01 {cleared.includes(1) ? " / CLEAR" : " / READY"}
             </span>
             <strong>
               ゲーム：通信任務に挑戦 <span>↗</span>
@@ -135,16 +138,40 @@ export function HomeScreen({
           </button>
         </div>
         <p className="small muted">
-          ゲーム任務1「自分でまとめる」をプレイできます。チュートリアルを飛ばして挑戦できます。
+          任務1・2を選んでプレイできます。チュートリアルを飛ばして挑戦できます。
         </p>
+        <nav aria-label="ゲーム任務一覧" className="mission-list">
+          {gameMissions.map((mission) => (
+            <button
+              key={mission.number}
+              className="stage-row"
+              onClick={() => onGame(mission.number)}
+              aria-label={`任務${mission.number}：${mission.title}`}
+            >
+              <span className="stage-number">
+                {String(mission.number).padStart(2, "0")}
+              </span>
+              <strong>{mission.title}</strong>
+              <span className="stage-status">
+                {cleared.includes(mission.number) ? "CLEAR" : "READY"}
+              </span>
+            </button>
+          ))}
+        </nav>
         <div className="upcoming-stages">
           <span>今後の任務</span>
           <p>
-            02 圧縮の逆効果 <i>/</i> 03 復元機を修理する <i>/</i> 04
-            見えない1バイト
+            03 復元機を修理する <i>/</i> 04 見えない1バイト
           </p>
           <small>自由実験とあわせて準備中</small>
         </div>
+      </section>
+      <section className="home-guide" aria-label="圧縮を学ぶ読みもの">
+        <h2>圧縮をもっと知る</h2>
+        <p className="small muted">
+          最初にRLEを学ぶ理由や、圧縮技術の歴史を読んでみよう。
+        </p>
+        <CompressionGuide />
       </section>
       <p className="scope-note">
         今回は文字データの圧縮・復元の基礎を体験します。実ファイルの保存やZIPの展開は、今後の学習範囲です。
