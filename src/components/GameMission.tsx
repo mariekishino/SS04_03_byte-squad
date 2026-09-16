@@ -7,7 +7,7 @@ import {
   canSendGame,
 } from "../game/manual.js";
 import type { GameAction, GameState } from "../game/manual.js";
-import { getGameMission } from "../game/missions.js";
+import { getGameMission, getNextGameMission } from "../game/missions.js";
 import type { GameMissionNumber } from "../game/missions.js";
 import { ArcadeField } from "./ArcadeField.js";
 import { RunEditor } from "./RunEditor.js";
@@ -30,6 +30,7 @@ export function GameMission({
 }) {
   const field = useRef<HTMLElement>(null);
   const mission = getGameMission(state.missionNumber);
+  const nextMission = getNextGameMission(state.missionNumber);
   const gameOriginal = getGameOriginal(state);
   const isRaw = state.method === "raw";
   const isEditing = state.phase === "editing";
@@ -273,14 +274,11 @@ export function GameMission({
             {success && (
               <div className="game-complete">
                 <p>
-                  通信任務{mission.number}を達成！{" "}
-                  {onNext
-                    ? "次の任務では、送り方を選んでみよう。"
-                    : "圧縮すると大きくなるデータもあります。データに合う送り方を選ぼう。"}
+                  通信任務{mission.number}を達成！ {mission.debrief}
                 </p>
-                {onNext && (
+                {onNext && nextMission && (
                   <button className="primary" onClick={onNext}>
-                    任務2へ：圧縮の逆効果
+                    任務{nextMission.number}へ：{nextMission.title}
                   </button>
                 )}
                 <button onClick={onHome}>ホームへ戻る</button>

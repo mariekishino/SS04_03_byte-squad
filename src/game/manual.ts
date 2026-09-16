@@ -42,7 +42,11 @@ export const initialGameState: GameState = {
   hintLevel: 0,
 };
 export function createGameState(missionNumber: GameMissionNumber): GameState {
-  return { ...initialGameState, missionNumber };
+  return {
+    ...initialGameState,
+    missionNumber,
+    runs: getGameMission(missionNumber).initialRuns.map((run) => ({ ...run })),
+  };
 }
 export function getGameOriginal(state: GameState): Uint8Array {
   return parseLearningInput(getGameMission(state.missionNumber).input);
